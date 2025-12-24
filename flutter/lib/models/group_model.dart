@@ -312,6 +312,13 @@ class GroupModel {
     try {
       if (_cacheLoadOnceFlag || groupLoading.value || initialized) return;
       _cacheLoadOnceFlag = true;
+
+      // Check if native library is available before calling bind methods
+      if (!platformFFI.nativeLibraryAvailable) {
+        debugPrint("Native library not available, skipping group cache load");
+        return;
+      }
+
       final access_token = bind.mainGetLocalOption(key: 'access_token');
       if (access_token.isEmpty) return;
       final cache = await bind.mainLoadGroup();

@@ -1,16 +1,20 @@
 {
   "dependencies": [
     {
-      "name": "aom",
-      "host": true
+      "name": "cpu-features",
+      "platform": "android"
     },
     {
-      "name": "aom",
+      "name": "libsodium",
       "host": false
     },
     {
-      "name": "cpu-features",
-      "platform": "android"
+      "name": "openssl",
+      "host": true
+    },
+    {
+      "name": "openssl",
+      "host": false
     },
     {
       "name": "libjpeg-turbo",
@@ -57,30 +61,6 @@
       "name": "mfx-dispatch",
       "host": false,
       "platform": "((x86 | x64) & (android | linux)) | (windows & !uwp)"
-    },
-    {
-      "name": "ffmpeg",
-      "host": true,
-      "features": [
-        {
-          "name": "amf",
-          "platform": "((windows | linux) & static)"
-        },
-        {
-          "name": "nvcodec",
-          "platform": "((windows | linux) & static)"
-        },
-        {
-          "name": "qsv",
-          "platform": "(windows & static)"
-        }
-      ],
-      "platform": "((windows | (linux & !arm32) | osx) & static)"
-    },
-    {
-      "name": "ffmpeg",
-      "host": false,
-      "platform": "((android | ios | (linux & arm32)) & static)"
     }
   ],
   "vcpkg-configuration": {

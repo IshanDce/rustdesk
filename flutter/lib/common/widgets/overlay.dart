@@ -257,6 +257,9 @@ class DraggableKeyPosition {
   get pos => _pos;
 
   _loadPosition(String k) {
+    if (!platformFFI.nativeLibraryAvailable) {
+      return DraggablePositions.kInvalidDraggablePosition;
+    }
     final value = bind.getLocalFlutterOption(k: k);
     if (value.isNotEmpty) {
       final parts = value.split(',');

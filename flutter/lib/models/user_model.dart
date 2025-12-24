@@ -32,6 +32,12 @@ class UserModel {
   }
 
   void refreshCurrentUser() async {
+    // Check if native library is available before calling bind methods
+    if (!platformFFI.nativeLibraryAvailable) {
+      debugPrint("Native library not available, skipping user refresh");
+      return;
+    }
+
     if (bind.isDisableAccount()) return;
     networkError.value = '';
     final token = bind.mainGetLocalOption(key: 'access_token');

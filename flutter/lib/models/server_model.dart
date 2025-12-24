@@ -6,6 +6,7 @@ import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/main.dart';
 import 'package:flutter_hbb/mobile/pages/settings_page.dart';
 import 'package:flutter_hbb/models/chat_model.dart';
+import 'package:flutter_hbb/models/native_model.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:get/get.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -147,6 +148,10 @@ class ServerModel with ChangeNotifier {
     */
 
     timerCallback() async {
+      if (!PlatformFFI.instance.nativeLibraryAvailable) {
+        debugPrint('Skipping timerCallback - native library not available');
+        return;
+      }
       final connectionStatus =
           jsonDecode(await bind.mainGetConnectStatus()) as Map<String, dynamic>;
       final statusNum = connectionStatus['status_num'] as int;
@@ -179,7 +184,7 @@ class ServerModel with ChangeNotifier {
 
     if (!isTest) {
       Future.delayed(Duration.zero, () async {
-        if (await bind.optionSynced()) {
+        if (PlatformFFI.instance.nativeLibraryAvailable && await bind.optionSynced()) {
           await timerCallback();
         }
       });
@@ -189,7 +194,7 @@ class ServerModel with ChangeNotifier {
     }
 
     // Initial keyboard status is off on mobile
-    if (isMobile) {
+    if (isMobile && PlatformFFI.instance.nativeLibraryAvailable) {
       bind.mainSetOption(key: kOptionEnableKeyboard, value: 'N');
     }
   }

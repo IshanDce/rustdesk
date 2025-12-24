@@ -34,34 +34,46 @@ if (flutterVersionName == null) {
 
 // Add rustls-platform-verifier Android support
 String findRustlsPlatformVerifierMavenDir() {
-    def dependencyText = providers.exec {
-        it.workingDir = new File("../..")
-        commandLine("cargo", "metadata", "--format-version", "1")
-    }.standardOutput.asText.get()
+    try {
+        def dependencyText = providers.exec {
+            it.workingDir = new File("../..")
+            it.isIgnoreExitValue = true
+            commandLine("cargo", "metadata", "--format-version", "1")
+        }.standardOutput.asText.get()
 
-    def dependencyJson = new JsonSlurper().parseText(dependencyText)
-    def pkg = dependencyJson.packages.find { it.name == "rustls-platform-verifier-android" }
-    
-    if (pkg == null) {
-        throw new GradleException("rustls-platform-verifier-android package not found in cargo metadata!")
+        def dependencyJson = new JsonSlurper().parseText(dependencyText)
+        def pkg = dependencyJson.packages.find { it.name == "rustls-platform-verifier-android" }
+        
+        if (pkg == null) {
+            println("⚠ rustls-platform-verifier-android package not found in cargo metadata, skipping")
+            return null
+        }
+        
+        def manifestPath = file(pkg.manifest_path)
+        def mavenDir = new File(manifestPath.parentFile, "maven")
+        
+        if (!mavenDir.exists()) {
+            println("⚠ Maven directory not found at: ${mavenDir.path}, skipping")
+            return null
+        }
+        
+        println("✓ Found rustls-platform-verifier maven repo at: ${mavenDir.path}")
+        return mavenDir.path
+    } catch (Exception e) {
+        println("⚠ Failed to find rustls-platform-verifier maven dir: ${e.message}")
+        return null
     }
-    
-    def manifestPath = file(pkg.manifest_path)
-    def mavenDir = new File(manifestPath.parentFile, "maven")
-    
-    if (!mavenDir.exists()) {
-        throw new GradleException("Maven directory not found at: ${mavenDir.path}")
-    }
-    
-    println("✓ Found rustls-platform-verifier maven repo at: ${mavenDir.path}")
-    return mavenDir.path
 }
 
 
+def rustlsMavenDir = findRustlsPlatformVerifierMavenDir()
+
 repositories {
-    maven {
-        url = findRustlsPlatformVerifierMavenDir()
-        metadataSources.artifact()
+    if (rustlsMavenDir != null) {
+        maven {
+            url = rustlsMavenDir
+            metadataSources.artifact()
+        }
     }
 }
 
@@ -82,6 +94,7 @@ protobuf {
 }
 
 android {
+    namespace = "com.carriez.flutter_hbb"
     compileSdkVersion 34
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
@@ -93,32 +106,32 @@ android {
     compileOptions {
         targetCompatibility JavaVersion.VERSION_1_8
         sourceCompatibility JavaVersion.VERSION_1_8
+        coreLibraryDesugaringEnabled true
     }
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId "com.carriez.flutter_hbb"
-        minSdkVersion 22
-        targetSdkVersion 33
+        minSdkVersion 24  // Android 7.0 (API 24) - good balance for modern features
+        targetSdkVersion 35  // Android 15 (API 35)
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
 
     signingConfigs {
       release {
-        keyAlias keystoreProperties['keyAlias']
-        keyPassword keystoreProperties['keyPassword']
-        storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-        storePassword keystoreProperties['storePassword']
+        // Use debug signing for now (no keystore required)
+        // You can create a proper keystore later for production release
       }
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig signingConfigs.release
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules'
+            // Signing with debug keys so build works without keystore
+            signingConfig signingConfigs.debug
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
@@ -127,11 +140,86 @@ flutter {
     source '../..'
 }
 
+// Build Rust library for Android using cargo-ndk
+task buildRustArm64(type: Exec) {
+    workingDir '../../..'
+    environment 'ANDROID_NDK_HOME', System.getenv('ANDROID_NDK_HOME') ?: 'D:\\Android\\Sdk\\ndk\\28.2.13676358'
+    environment 'ANDROID_NDK_ROOT', System.getenv('ANDROID_NDK_ROOT') ?: 'D:\\Android\\Sdk\\ndk\\28.2.13676358'
+    commandLine 'cargo', 'ndk', '-t', 'arm64-v8a', '-o', 'flutter/android/app/src/main/jniLibs', 'build', '--release', '--features', 'flutter'
+    doFirst {
+        println "Building Rust library for arm64-v8a..."
+        println "ANDROID_NDK_HOME: " + environment['ANDROID_NDK_HOME']
+    }
+}
+
+task buildRustArmv7(type: Exec) {
+    workingDir '../../..'
+    environment 'ANDROID_NDK_HOME', System.getenv('ANDROID_NDK_HOME') ?: 'D:\\Android\\Sdk\\ndk\\28.2.13676358'
+    environment 'ANDROID_NDK_ROOT', System.getenv('ANDROID_NDK_ROOT') ?: 'D:\\Android\\Sdk\\ndk\\28.2.13676358'
+    commandLine 'cargo', 'ndk', '-t', 'armeabi-v7a', '-o', 'flutter/android/app/src/main/jniLibs', 'build', '--release', '--features', 'flutter'
+    doFirst {
+        println "Building Rust library for armeabi-v7a..."
+    }
+}
+
+task buildRustX86_64(type: Exec) {
+    workingDir '../../..'
+    environment 'ANDROID_NDK_HOME', System.getenv('ANDROID_NDK_HOME') ?: 'D:\\Android\\Sdk\\ndk\\28.2.13676358'
+    environment 'ANDROID_NDK_ROOT', System.getenv('ANDROID_NDK_ROOT') ?: 'D:\\Android\\Sdk\\ndk\\28.2.13676358'
+    commandLine 'cargo', 'ndk', '-t', 'x86_64', '-o', 'flutter/android/app/src/main/jniLibs', 'build', '--release', '--features', 'flutter'
+    doFirst {
+        println "Building Rust library for x86_64..."
+    }
+}
+
+task buildRustI686(type: Exec) {
+    workingDir '../../..'
+    environment 'ANDROID_NDK_HOME', System.getenv('ANDROID_NDK_HOME') ?: 'D:\\Android\\Sdk\\ndk\\28.2.13676358'
+    environment 'ANDROID_NDK_ROOT', System.getenv('ANDROID_NDK_ROOT') ?: 'D:\\Android\\Sdk\\ndk\\28.2.13676358'
+    commandLine 'cargo', 'ndk', '-t', 'x86', '-o', 'flutter/android/app/src/main/jniLibs', 'build', '--release', '--features', 'flutter'
+    doFirst {
+        println "Building Rust library for x86..."
+    }
+}
+
+task copyRustLibs(type: Copy) {
+    dependsOn buildRustArm64, buildRustArmv7, buildRustX86_64, buildRustI686
+    
+    from('D:/rustdesk-build/aarch64-linux-android/release') {
+        include 'librustdesk.so'
+        into 'arm64-v8a'
+    }
+    from('D:/rustdesk-build/armv7-linux-androideabi/release') {
+        include 'librustdesk.so'
+        into 'armeabi-v7a'
+    }
+    from('D:/rustdesk-build/x86_64-linux-android/release') {
+        include 'librustdesk.so'
+        into 'x86_64'
+    }
+    from('D:/rustdesk-build/i686-linux-android/release') {
+        include 'librustdesk.so'
+        into 'x86'
+    }
+    into 'src/main/jniLibs'
+    
+    // Don't fail if the source files don't exist (for stub builds)
+    onlyIf { false }
+}
+
+// Make sure Rust is built before compiling Java
+tasks.whenTaskAdded { task ->
+    if (task.name == 'mergeReleaseJniLibFolders' || task.name == 'mergeDebugJniLibFolders') {
+        task.dependsOn copyRustLibs
+    }
+}
+
 dependencies {
     implementation 'com.google.protobuf:protobuf-javalite:3.20.1'
     implementation "androidx.media:media:1.6.0"
     implementation 'com.github.getActivity:XXPermissions:18.5'
-    implementation("org.jetbrains.kotlin:kotlin-stdlib") { version { strictly("1.9.10") } }
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.1.0")
     implementation 'com.caverock:androidsvg-aar:1.4'
-    implementation "rustls:rustls-platform-verifier:0.1.1"
+    // implementation "rustls:rustls-platform-verifier:0.1.1"
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
 }

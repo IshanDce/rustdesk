@@ -21,9 +21,11 @@ use hbb_common::{
     protobuf::{Enum, Message as _},
     rendezvous_proto::*,
     socket_client,
-    sodiumoxide::crypto::{box_, sign},
     timeout, tokio, ResultType, Stream,
 };
+#[cfg(feature = "sodium")]
+use hbb_common::sodiumoxide::crypto::{box_, sign};
+#[cfg(not(target_os = "android"))]
 use scrap::camera;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use service::ServiceTmpl;
@@ -177,6 +179,7 @@ pub async fn create_tcp_connection(
     let mut stream = stream;
     let id = server.write().unwrap().get_new_id();
     let (sk, pk) = Config::get_key_pair();
+    #[cfg(feature = "sodium")]
     if secure && pk.len() == sign::PUBLICKEYBYTES && sk.len() == sign::SECRETKEYBYTES {
         let mut sk_ = [0u8; sign::SECRETKEYBYTES];
         sk_[..].copy_from_slice(&sk);

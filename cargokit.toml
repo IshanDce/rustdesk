@@ -1,0 +1,7 @@
+[build]
+# Build release artifacts
+profile = "release"
+
+# Optimize for small size and performance
+lto = true
+codegen-units = 1

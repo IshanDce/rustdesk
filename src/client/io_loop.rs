@@ -41,6 +41,7 @@ use hbb_common::{
 };
 #[cfg(any(target_os = "windows", feature = "unix-file-copy-paste"))]
 use hbb_common::{tokio::sync::Mutex as TokioMutex, ResultType};
+#[cfg(not(target_os = "android"))]
 use scrap::CodecFormat;
 use std::{
     collections::HashMap,
@@ -71,6 +72,7 @@ pub struct Remote<T: InvokeUiSession> {
     #[cfg(any(target_os = "windows", feature = "unix-file-copy-paste"))]
     client_conn_id: i32, // used for file clipboard
     data_count: Arc<AtomicUsize>,
+    #[cfg(not(target_os = "android"))]
     video_format: CodecFormat,
     elevation_requested: bool,
     peer_info: ParsedPeerInfo,
@@ -118,6 +120,7 @@ impl<T: InvokeUiSession> Remote<T> {
             #[cfg(any(target_os = "windows", feature = "unix-file-copy-paste"))]
             client_conn_id: 0,
             data_count: Arc::new(AtomicUsize::new(0)),
+            #[cfg(not(target_os = "android"))]
             video_format: CodecFormat::Unknown,
             stop_voice_call_sender: None,
             voice_call_request_timestamp: None,
@@ -303,7 +306,9 @@ impl<T: InvokeUiSession> Remote<T> {
                                 None => "-",
                             };
                             let chroma = Some(chroma.to_string());
-                            let codec_format = if self.video_format == CodecFormat::Unknown {
+                            let codec_format = if cfg!(target_os = "android") {
+                                None
+                            } else if self.video_format == CodecFormat::Unknown {
                                 None
                             } else {
                                 Some(self.video_format.clone())
@@ -1291,6 +1296,7 @@ impl<T: InvokeUiSession> Remote<T> {
                         self.send_toggle_virtual_display_msg(peer).await;
                         self.send_toggle_privacy_mode_msg(peer).await;
                     }
+                    #[cfg(not(target_os = "android"))]
                     self.video_format = CodecFormat::from(&vf);
 
                     let display = vf.display as usize;
@@ -1365,7 +1371,7 @@ impl<T: InvokeUiSession> Remote<T> {
                                     ),
                                 },
                             ));
-                            // To make sure current text clipboard data is updated.
+                            #[cfg(feature = "flutter")]
                             #[cfg(not(target_os = "ios"))]
                             if let Some(mut rx) = rx {
                                 timeout(CLIPBOARD_INTERVAL, rx.recv()).await.ok();
@@ -2328,27 +2334,30 @@ impl<T: InvokeUiSession> Remote<T> {
             discard_queue: discard_queue.clone(),
         };
         let handler = self.handler.ui_handler.clone();
-        crate::client::start_video_thread(
-            self.handler.clone(),
-            display,
-            video_receiver,
-            video_queue,
-            decode_fps,
-            self.chroma.clone(),
-            discard_queue,
-            move |display: usize,
-                  data: &mut scrap::ImageRgb,
-                  _texture: *mut c_void,
-                  pixelbuffer: bool| {
-                *frame_count.write().unwrap() += 1;
-                if pixelbuffer {
-                    handler.on_rgba(display, data);
-                } else {
-                    #[cfg(all(feature = "vram", feature = "flutter"))]
-                    handler.on_texture(display, _texture);
-                }
-            },
-        );
+        #[cfg(not(target_os = "android"))]
+        {
+            crate::client::start_video_thread(
+                self.handler.clone(),
+                display,
+                video_receiver,
+                video_queue,
+                decode_fps,
+                self.chroma.clone(),
+                discard_queue,
+                move |display: usize,
+                      data: &mut scrap::ImageRgb,
+                      _texture: *mut c_void,
+                      pixelbuffer: bool| {
+                    *frame_count.write().unwrap() += 1;
+                    if pixelbuffer {
+                        handler.on_rgba(display, data);
+                    } else {
+                        #[cfg(all(feature = "vram", feature = "flutter"))]
+                        handler.on_texture(display, _texture);
+                    }
+                },
+            );
+        }
         self.video_threads.insert(display, video_thread);
         if self.video_threads.len() == 1 {
             let auto_record =

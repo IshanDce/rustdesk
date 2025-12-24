@@ -35,13 +35,21 @@ class PlatformFFI {
   late RustdeskImpl _ffiBind;
   late String _appType;
   StreamEventHandler? _eventCallback;
+  bool _nativeLibraryAvailable = true;
+
+  bool get nativeLibraryAvailable => _nativeLibraryAvailable;
 
   PlatformFFI._();
 
   static final PlatformFFI instance = PlatformFFI._();
   final _toAndroidChannel = const MethodChannel('mChannel');
 
-  RustdeskImpl get ffiBind => _ffiBind;
+  RustdeskImpl get ffiBind {
+    if (!_nativeLibraryAvailable) {
+      throw Exception('Native RustDesk library not available. Please build the Rust library for full functionality.');
+    }
+    return _ffiBind;
+  }
   F3? _session_get_rgba;
 
   static get localeName => Platform.localeName;
@@ -84,8 +92,17 @@ class PlatformFFI {
     }
   }
 
-  String translate(String name, String locale) =>
-      _ffiBind.translate(name: name, locale: locale);
+  String translate(String name, String locale) {
+    if (!_nativeLibraryAvailable) {
+      return name; // Return the original name if translation is not available
+    }
+    try {
+      return _ffiBind.translate(name: name, locale: locale);
+    } catch (e) {
+      debugPrint('Translation failed: $e');
+      return name;
+    }
+  }
 
   Uint8List? getRgba(SessionID sessionId, int display, int bufSize) {
     if (_session_get_rgba == null) return null;
@@ -117,21 +134,22 @@ class PlatformFFI {
   /// Init the FFI class, loads the native Rust core library.
   Future<void> init(String appType) async {
     _appType = appType;
-    final dylib = isAndroid
-        ? DynamicLibrary.open('librustdesk.so')
-        : isLinux
-            ? DynamicLibrary.open('librustdesk.so')
-            : isWindows
-                ? DynamicLibrary.open('librustdesk.dll')
-                :
-                // Use executable itself as the dynamic library for MacOS.
-                // Multiple dylib instances will cause some global instances to be invalid.
-                // eg. `lazy_static` objects in rust side, will be created more than once, which is not expected.
-                //
-                // isMacOS? DynamicLibrary.open("liblibrustdesk.dylib") :
-                DynamicLibrary.process();
-    debugPrint('initializing FFI $_appType');
     try {
+      final dylib = isAndroid
+          ? DynamicLibrary.open('librustdesk.so')
+          : isLinux
+              ? DynamicLibrary.open('librustdesk.so')
+              : isWindows
+                  ? DynamicLibrary.open('librustdesk.dll')
+                  :
+                  // Use executable itself as the dynamic library for MacOS.
+                  // Multiple dylib instances will cause some global instances to be invalid.
+                  // eg. `lazy_static` objects in rust side, will be created more than once, which is not expected.
+                  //
+                  // isMacOS? DynamicLibrary.open("liblibrustdesk.dylib") :
+                  DynamicLibrary.process();
+      debugPrint('initializing FFI $_appType');
+
       _session_get_rgba = dylib.lookupFunction<F3Dart, F3>("session_get_rgba");
       try {
         // SYSTEM user failed
@@ -140,6 +158,7 @@ class PlatformFFI {
         debugPrint('Failed to get documents directory: $e');
       }
       _ffiBind = RustdeskImpl(dylib);
+      _nativeLibraryAvailable = true;
 
       if (isLinux) {
         if (isMain) {
@@ -150,7 +169,9 @@ class PlatformFFI {
         // Start ipc service for uri links.
         _ffiBind.mainStartIpcUrlServer();
       }
-      _startListenEvent(_ffiBind); // global event
+      if (_nativeLibraryAvailable) {
+        _startListenEvent(_ffiBind); // global event
+      }
       try {
         if (isAndroid) {
           // only support for android
@@ -166,6 +187,15 @@ class PlatformFFI {
       } catch (e) {
         debugPrintStack(label: 'initialize failed: $e');
       }
+    } catch (e) {
+      debugPrint('Failed to load native library: $e');
+      // Set flag to indicate native functionality is not available
+      _nativeLibraryAvailable = false;
+      // Don't initialize FFI binding
+    }
+
+    // Device info and initialization (runs regardless of native library availability)
+    try {
       String id = 'NA';
       String name = 'Flutter';
       DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
@@ -206,16 +236,20 @@ class PlatformFFI {
         debugPrint(
             '_appType:$_appType,info1-id:$id,info2-name:$name,dir:$_dir');
       }
-      if (desktopType == DesktopType.cm) {
-        await _ffiBind.cmInit();
+      if (_nativeLibraryAvailable) {
+        if (desktopType == DesktopType.cm) {
+          await _ffiBind.cmInit();
+        }
+        await _ffiBind.mainDeviceId(id: id);
+        await _ffiBind.mainDeviceName(name: name);
+        await _ffiBind.mainSetHomeDir(home: _homeDir);
+        await _ffiBind.mainInit(
+          appDir: _dir,
+          customClientConfig: '',
+        );
+      } else {
+        debugPrint('Skipping FFI initialization - native library not available');
       }
-      await _ffiBind.mainDeviceId(id: id);
-      await _ffiBind.mainDeviceName(name: name);
-      await _ffiBind.mainSetHomeDir(home: _homeDir);
-      await _ffiBind.mainInit(
-        appDir: _dir,
-        customClientConfig: '',
-      );
     } catch (e) {
       debugPrintStack(label: 'initialize failed: $e');
     }
@@ -260,11 +294,11 @@ class PlatformFFI {
     });
   }
 
-  void setEventCallback(StreamEventHandler fun) async {
+  void setEventCallback(StreamEventHandler fun) {
     _eventCallback = fun;
   }
 
-  void setRgbaCallback(void Function(int, Uint8List) fun) async {}
+  void setRgbaCallback(void Function(int, Uint8List) fun) {}
 
   void startDesktopWebListener() {}
 
@@ -277,7 +311,7 @@ class PlatformFFI {
     });
   }
 
-  invokeMethod(String method, [dynamic arguments]) async {
+  Future<bool> invokeMethod(String method, [dynamic arguments]) async {
     if (!isAndroid) return Future<bool>(() => false);
     return await _toAndroidChannel.invokeMethod(method, arguments);
   }

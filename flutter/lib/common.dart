@@ -2934,6 +2934,7 @@ String getWindowNameWithId(String id, {WindowType? overrideType}) {
 
 Future<void> updateSystemWindowTheme() async {
   // Set system window theme for macOS.
+  if (!platformFFI.nativeLibraryAvailable) return;
   final userPreference = MyTheme.getThemeModePreference();
   if (userPreference != ThemeMode.system) {
     if (isMacOS) {
@@ -3865,6 +3866,12 @@ void earlyAssert() {
 
 void checkUpdate() {
   if (!isWeb) {
+    // Check if native library is available before calling bind methods
+    if (!platformFFI.nativeLibraryAvailable) {
+      debugPrint("Native library not available, skipping update check");
+      return;
+    }
+
     if (!bind.isCustomClient()) {
       platformFFI.registerEventHandler(
           kCheckSoftwareUpdateFinish, kCheckSoftwareUpdateFinish,

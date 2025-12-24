@@ -15,6 +15,7 @@
 use super::*;
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 use hbb_common::anyhow::anyhow;
+#[cfg(not(target_os = "android"))]
 use magnum_opus::{Application::*, Channels::*, Encoder};
 use std::sync::atomic::{AtomicBool, Ordering};
 

@@ -18,8 +18,17 @@ macro_rules! configure_http_client {
 
         match $tls_type {
             TlsType::Plain => {}
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
             TlsType::NativeTls => {
                 builder = builder.use_native_tls();
+                if $danger_accept_invalid_cert {
+                    builder = builder.danger_accept_invalid_certs(true);
+                }
+            }
+            #[cfg(any(target_os = "android", target_os = "ios"))]
+            TlsType::NativeTls => {
+                // Native TLS not supported on Android/iOS, use Rustls
+                builder = builder.use_rustls_tls();
                 if $danger_accept_invalid_cert {
                     builder = builder.danger_accept_invalid_certs(true);
                 }

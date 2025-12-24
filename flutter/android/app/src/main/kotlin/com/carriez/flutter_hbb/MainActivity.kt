@@ -100,7 +100,13 @@ class MainActivity : FlutterActivity() {
         super.onCreate(savedInstanceState)
         if (_rdClipboardManager == null) {
             _rdClipboardManager = RdClipboardManager(getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-            FFI.setClipboardManager(_rdClipboardManager!!)
+            if (FFI.nativeLibraryLoaded) {
+                try {
+                    FFI.setClipboardManager(_rdClipboardManager!!)
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Failed to set clipboard manager: ${e.message}")
+                }
+            }
         }
     }
 
@@ -356,7 +362,13 @@ class MainActivity : FlutterActivity() {
         result.put("w", w)
         result.put("h", h)
         result.put("codecs", codecArray)
-        FFI.setCodecInfo(result.toString())
+        if (FFI.nativeLibraryLoaded) {
+            try {
+                FFI.setCodecInfo(result.toString())
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Failed to setCodecInfo: ${e.message}")
+            }
+        }
     }
 
     private fun onVoiceCallStarted() {
@@ -401,9 +413,15 @@ class MainActivity : FlutterActivity() {
 
     override fun onStop() {
         super.onStop()
-        val disableFloatingWindow = FFI.getLocalOption("disable-floating-window") == "Y"
-        if (!disableFloatingWindow && MainService.isReady) {
-            startService(Intent(this, FloatingWindowService::class.java))
+        if (FFI.nativeLibraryLoaded) {
+            try {
+                val disableFloatingWindow = FFI.getLocalOption("disable-floating-window") == "Y"
+                if (!disableFloatingWindow && MainService.isReady) {
+                    startService(Intent(this, FloatingWindowService::class.java))
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Failed to check disable-floating-window: ${e.message}")
+            }
         }
     }
 

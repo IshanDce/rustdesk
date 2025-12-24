@@ -183,8 +183,14 @@ void runMobileApp() async {
   if (isAndroid) androidChannelInit();
   if (isAndroid) platformFFI.syncAndroidServiceAppDirConfigPath();
   draggablePositions.load();
-  await Future.wait([gFFI.abModel.loadCache(), gFFI.groupModel.loadCache()]);
-  gFFI.userModel.refreshCurrentUser();
+  if (platformFFI.nativeLibraryAvailable) {
+    try {
+      await Future.wait([gFFI.abModel.loadCache(), gFFI.groupModel.loadCache()]);
+      gFFI.userModel.refreshCurrentUser();
+    } catch (e) {
+      debugPrint('Error loading cache: $e');
+    }
+  }
   runApp(App());
   await initUniLinks();
 }
@@ -432,6 +438,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.window.onPlatformBrightnessChanged = () {
+      if (!platformFFI.nativeLibraryAvailable) return;
       final userPreference = MyTheme.getThemeModePreference();
       if (userPreference != ThemeMode.system) return;
       WidgetsBinding.instance.handlePlatformBrightnessChanged();
@@ -500,11 +507,11 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           navigatorKey: globalKey,
           debugShowCheckedModeBanner: false,
           title: isWeb
-              ? '${bind.mainGetAppNameSync()} Web Client V2 (Preview)'
-              : bind.mainGetAppNameSync(),
+              ? '${platformFFI.nativeLibraryAvailable ? bind.mainGetAppNameSync() : 'RustDesk'} Web Client V2 (Preview)'
+              : (platformFFI.nativeLibraryAvailable ? bind.mainGetAppNameSync() : 'RustDesk'),
           theme: MyTheme.lightTheme,
           darkTheme: MyTheme.darkTheme,
-          themeMode: MyTheme.currentThemeMode(),
+          themeMode: platformFFI.nativeLibraryAvailable ? MyTheme.currentThemeMode() : ThemeMode.system,
           home: isDesktop
               ? const DesktopTabPage()
               : isWeb

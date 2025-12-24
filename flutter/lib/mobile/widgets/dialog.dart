@@ -17,6 +17,10 @@ void _showError() {
 }
 
 void setPermanentPasswordDialog(OverlayDialogManager dialogManager) async {
+  if (!platformFFI.nativeLibraryAvailable) {
+    showToast(translate("Native library not available"));
+    return;
+  }
   final pw = await bind.mainGetPermanentPassword();
   final p0 = TextEditingController(text: pw);
   final p1 = TextEditingController(text: pw);
@@ -108,6 +112,10 @@ void setPermanentPasswordDialog(OverlayDialogManager dialogManager) async {
 
 void setTemporaryPasswordLengthDialog(
     OverlayDialogManager dialogManager) async {
+  if (!platformFFI.nativeLibraryAvailable) {
+    showToast(translate("Native library not available"));
+    return;
+  }
   List<String> lengths = ['6', '8', '10'];
   String length = await bind.mainGetOption(key: "temporary-password-length");
   var index = lengths.indexOf(length);
@@ -150,6 +158,10 @@ void setTemporaryPasswordLengthDialog(
 void showServerSettings(OverlayDialogManager dialogManager,
     void Function(VoidCallback) setState) async {
   Map<String, dynamic> options = {};
+  if (!platformFFI.nativeLibraryAvailable) {
+    showToast(translate("Native library not available"));
+    return;
+  }
   try {
     options = jsonDecode(await bind.mainGetOptions());
   } catch (e) {

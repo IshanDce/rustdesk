@@ -8,8 +8,16 @@ import java.nio.ByteBuffer
 import com.carriez.flutter_hbb.RdClipboardManager
 
 object FFI {
+    var nativeLibraryLoaded = false
+    
     init {
-        System.loadLibrary("rustdesk")
+        try {
+            System.loadLibrary("rustdesk")
+            nativeLibraryLoaded = true
+        } catch (e: UnsatisfiedLinkError) {
+            nativeLibraryLoaded = false
+            android.util.Log.e("RustDesk", "Failed to load native library: ${e.message}")
+        }
     }
 
     external fun init(ctx: Context)

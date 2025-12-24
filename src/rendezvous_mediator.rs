@@ -466,6 +466,7 @@ impl RendezvousMediator {
         }
         msg_out.set_relay_response(rr);
         socket.send(&msg_out).await?;
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
         crate::create_relay_connection(
             server,
             relay_server,
@@ -547,6 +548,7 @@ impl RendezvousMediator {
         });
         let bytes = msg_out.write_to_bytes()?;
         socket.send_raw(bytes).await?;
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
         crate::accept_connection(server.clone(), socket, peer_addr, true).await;
         Ok(())
     }
@@ -614,6 +616,7 @@ impl RendezvousMediator {
         msg_out.set_punch_hole_sent(msg_punch);
         let bytes = msg_out.write_to_bytes()?;
         socket.send_raw(bytes).await?;
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
         crate::accept_connection(server.clone(), socket, peer_addr, true).await;
         Ok(())
     }

@@ -21,12 +21,11 @@ pub struct KcpStream {
 
 impl KcpStream {
     fn create_framed(stream: stream::KcpStream, local_addr: Option<SocketAddr>) -> Stream {
-        Stream::Tcp(FramedStream(
-            tokio_util::codec::Framed::new(DynTcpStream(Box::new(stream)), BytesCodec::new()),
-            local_addr.unwrap_or(config::Config::get_any_listen_addr(true)),
-            None,
-            0,
-        ))
+        Stream::Tcp(FramedStream {
+            framed: tokio_util::codec::Framed::new(DynTcpStream(Box::new(stream)), BytesCodec::new()),
+            addr: local_addr.unwrap_or(config::Config::get_any_listen_addr(true)),
+            send_timeout: 0,
+        })
     }
 
     pub async fn accept(

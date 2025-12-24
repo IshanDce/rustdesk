@@ -517,6 +517,7 @@ impl<T: InvokeUiSession> Session<T> {
         true
     }
 
+    #[cfg(not(target_os = "android"))]
     pub fn alternative_codecs(&self) -> (bool, bool, bool, bool) {
         let luid = self.lc.read().unwrap().adapter_luid;
         let mark_unsupported = self.lc.read().unwrap().mark_unsupported.clone();
@@ -538,6 +539,7 @@ impl<T: InvokeUiSession> Session<T> {
         (vp8, av1, h264, h265)
     }
 
+    #[cfg(not(target_os = "android"))]
     pub fn update_supported_decodings(&self) {
         let msg = self.lc.write().unwrap().update_supported_decodings();
         self.send(Data::Message(msg));
@@ -545,6 +547,7 @@ impl<T: InvokeUiSession> Session<T> {
 
     pub fn use_texture_render_changed(&self) {
         self.send(Data::ResetDecoder(None));
+        #[cfg(not(target_os = "android"))]
         self.update_supported_decodings();
         self.send(Data::Message(LoginConfigHandler::refresh()));
     }
@@ -1699,6 +1702,7 @@ pub trait InvokeUiSession: Send + Sync + Clone + 'static + Sized + Default {
     fn update_block_input_state(&self, on: bool);
     fn job_progress(&self, id: i32, file_num: i32, speed: f64, finished_size: f64);
     fn adapt_size(&self);
+    #[cfg(not(target_os = "android"))]
     fn on_rgba(&self, display: usize, rgba: &mut scrap::ImageRgb);
     fn msgbox(&self, msgtype: &str, title: &str, text: &str, link: &str, retry: bool);
     #[cfg(any(target_os = "android", target_os = "ios"))]

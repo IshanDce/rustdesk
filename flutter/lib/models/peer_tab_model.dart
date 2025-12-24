@@ -40,9 +40,9 @@ class PeerTabModel with ChangeNotifier {
   List<bool> isEnabled = List.from([
     true,
     true,
-    !isWeb && bind.mainGetLocalOption(key: "disable-discovery-panel") != "Y",
-    !(bind.isDisableAb() || bind.isDisableAccount()),
-    !(bind.isDisableGroupPanel() || bind.isDisableAccount()),
+    !isWeb && (platformFFI.nativeLibraryAvailable ? bind.mainGetLocalOption(key: "disable-discovery-panel") != "Y" : true),
+    platformFFI.nativeLibraryAvailable ? !(bind.isDisableAb() || bind.isDisableAccount()) : false,
+    platformFFI.nativeLibraryAvailable ? !(bind.isDisableGroupPanel() || bind.isDisableAccount()) : false,
   ]);
   final List<bool> _isVisible = List.filled(maxTabCount, true, growable: false);
   List<bool> get isVisibleEnabled => () {
@@ -70,13 +70,15 @@ class PeerTabModel with ChangeNotifier {
   PeerTabModel(this.parent) {
     // visible
     try {
-      final option = bind.getLocalFlutterOption(k: kOptionPeerTabVisible);
-      if (option.isNotEmpty) {
-        List<dynamic> decodeList = jsonDecode(option);
-        if (decodeList.length == _isVisible.length) {
-          for (int i = 0; i < _isVisible.length; i++) {
-            if (decodeList[i] is bool) {
-              _isVisible[i] = decodeList[i];
+      if (platformFFI.nativeLibraryAvailable) {
+        final option = bind.getLocalFlutterOption(k: kOptionPeerTabVisible);
+        if (option.isNotEmpty) {
+          List<dynamic> decodeList = jsonDecode(option);
+          if (decodeList.length == _isVisible.length) {
+            for (int i = 0; i < _isVisible.length; i++) {
+              if (decodeList[i] is bool) {
+                _isVisible[i] = decodeList[i];
+              }
             }
           }
         }
@@ -86,21 +88,23 @@ class PeerTabModel with ChangeNotifier {
     }
     // order
     try {
-      final option = bind.getLocalFlutterOption(k: kOptionPeerTabOrder);
-      if (option.isNotEmpty) {
-        List<dynamic> decodeList = jsonDecode(option);
-        if (decodeList.length == maxTabCount) {
-          var sortedList = decodeList.toList();
-          sortedList.sort();
-          bool valid = true;
-          for (int i = 0; i < maxTabCount; i++) {
-            if (sortedList[i] is! int || sortedList[i] != i) {
-              valid = false;
+      if (platformFFI.nativeLibraryAvailable) {
+        final option = bind.getLocalFlutterOption(k: kOptionPeerTabOrder);
+        if (option.isNotEmpty) {
+          List<dynamic> decodeList = jsonDecode(option);
+          if (decodeList.length == maxTabCount) {
+            var sortedList = decodeList.toList();
+            sortedList.sort();
+            bool valid = true;
+            for (int i = 0; i < maxTabCount; i++) {
+              if (sortedList[i] is! int || sortedList[i] != i) {
+                valid = false;
+              }
             }
-          }
-          if (valid) {
-            for (int i = 0; i < orders.length; i++) {
-              orders[i] = decodeList[i];
+            if (valid) {
+              for (int i = 0; i < orders.length; i++) {
+                orders[i] = decodeList[i];
+              }
             }
           }
         }
@@ -109,8 +113,17 @@ class PeerTabModel with ChangeNotifier {
       debugPrint("failed to get peer tab order list: $e");
     }
     // init currentTab
-    _currentTab =
-        int.tryParse(bind.getLocalFlutterOption(k: kOptionPeerTabIndex)) ?? 0;
+    try {
+      if (platformFFI.nativeLibraryAvailable) {
+        _currentTab =
+            int.tryParse(bind.getLocalFlutterOption(k: kOptionPeerTabIndex)) ?? 0;
+      } else {
+        _currentTab = 0;
+      }
+    } catch (e) {
+      debugPrint("failed to get peer tab index: $e");
+      _currentTab = 0;
+    }
     if (_currentTab < 0 || _currentTab >= maxTabCount) {
       _currentTab = 0;
     }
@@ -226,8 +239,10 @@ class PeerTabModel with ChangeNotifier {
           _currentTab = index;
         }
         try {
-          bind.setLocalFlutterOption(
-              k: kOptionPeerTabVisible, v: jsonEncode(_isVisible));
+          if (platformFFI.nativeLibraryAvailable) {
+            bind.setLocalFlutterOption(
+                k: kOptionPeerTabVisible, v: jsonEncode(_isVisible));
+          }
         } catch (_) {}
         notifyListeners();
       }
@@ -263,7 +278,9 @@ class PeerTabModel with ChangeNotifier {
       for (int i = 0; i < list.length; i++) {
         orders[i] = list[i];
       }
-      bind.setLocalFlutterOption(k: kOptionPeerTabOrder, v: jsonEncode(orders));
+      if (platformFFI.nativeLibraryAvailable) {
+        bind.setLocalFlutterOption(k: kOptionPeerTabOrder, v: jsonEncode(orders));
+      }
       notifyListeners();
     }
   }

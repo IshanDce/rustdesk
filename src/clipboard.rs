@@ -713,7 +713,7 @@ pub fn handle_msg_clipboard(mut cb: Clipboard) {
         ..Default::default()
     };
     if let Ok(bytes) = multi_clips.write_to_bytes() {
-        let _ = scrap::android::ffi::call_clipboard_manager_update_clipboard(&bytes);
+        // let _ = scrap::android::ffi::call_clipboard_manager_update_clipboard(&bytes);
     }
 }
 
@@ -727,24 +727,14 @@ pub fn handle_msg_multi_clipboards(mut mcb: MultiClipboards) {
         }
     }
     if let Ok(bytes) = mcb.write_to_bytes() {
-        let _ = scrap::android::ffi::call_clipboard_manager_update_clipboard(&bytes);
+        // let _ = scrap::android::ffi::call_clipboard_manager_update_clipboard(&bytes);
     }
 }
 
 #[cfg(target_os = "android")]
-pub fn get_clipboards_msg(client: bool) -> Option<Message> {
-    let mut clipboards = scrap::android::ffi::get_clipboards(client)?;
-    let mut msg = Message::new();
-    for c in &mut clipboards.clipboards {
-        let compressed = hbb_common::compress::compress(&c.content);
-        let compress = compressed.len() < c.content.len();
-        if compress {
-            c.content = compressed.into();
-        }
-        c.compress = compress;
-    }
-    msg.set_multi_clipboards(clipboards);
-    Some(msg)
+pub fn get_clipboards_msg(_client: bool) -> Option<Message> {
+    // scrap not available for android
+    None
 }
 
 // We need this mod to notify multiple subscribers when the clipboard changes.

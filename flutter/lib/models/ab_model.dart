@@ -17,17 +17,17 @@ import '../common.dart';
 
 final syncAbOption = 'sync-ab-with-recent-sessions';
 bool shouldSyncAb() {
-  return bind.mainGetLocalOption(key: syncAbOption) == 'Y';
+  return platformFFI.nativeLibraryAvailable && bind.mainGetLocalOption(key: syncAbOption) == 'Y';
 }
 
 final sortAbTagsOption = 'sync-ab-tags';
 bool shouldSortTags() {
-  return bind.mainGetLocalOption(key: sortAbTagsOption) == 'Y';
+  return platformFFI.nativeLibraryAvailable && bind.mainGetLocalOption(key: sortAbTagsOption) == 'Y';
 }
 
 final filterAbTagOption = 'filter-ab-by-intersection';
 bool filterAbTagByIntersection() {
-  return bind.mainGetLocalOption(key: filterAbTagOption) == 'Y';
+  return platformFFI.nativeLibraryAvailable && bind.mainGetLocalOption(key: filterAbTagOption) == 'Y';
 }
 
 const _personalAddressBookName = "My address book";
@@ -589,6 +589,13 @@ class AbModel {
     try {
       if (_cacheLoadOnceFlag || currentAbLoading.value) return;
       _cacheLoadOnceFlag = true;
+
+      // Check if native library is available before calling bind methods
+      if (!platformFFI.nativeLibraryAvailable) {
+        debugPrint("Native library not available, skipping ab cache load");
+        return;
+      }
+
       final access_token = bind.mainGetLocalOption(key: 'access_token');
       if (access_token.isEmpty) return;
       final cache = await bind.mainLoadAb();

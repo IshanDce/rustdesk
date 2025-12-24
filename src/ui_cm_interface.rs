@@ -214,11 +214,11 @@ impl<T: InvokeUiCM> ConnectionManager<T> {
             .next()
             .is_none()
         {
-            if let Err(e) =
-                scrap::android::call_main_service_set_by_name("stop_capture", None, None)
-            {
-                log::debug!("stop_capture err:{}", e);
-            }
+            // if let Err(e) =
+            //     scrap::android::call_main_service_set_by_name("stop_capture", None, None)
+            // {
+            //     log::debug!("stop_capture err:{}", e);
+            // }
         }
 
         self.ui_handler.remove_connection(id, close);

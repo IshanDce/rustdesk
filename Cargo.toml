@@ -27,12 +27,11 @@ use_samplerate = ["samplerate"]
 use_rubato = ["rubato"]
 use_dasp = ["dasp"]
 flutter = ["flutter_rust_bridge"]
-default = ["use_dasp"]
-hwcodec = ["scrap/hwcodec"]
-vram = ["scrap/vram"]
-mediacodec = ["scrap/mediacodec"]
+default = ["use_dasp", "rustls"]
+hwcodec = []
+vram = []
+mediacodec = []
 plugin_framework = []
-linux-pkg-config = ["magnum-opus/linux-pkg-config", "scrap/linux-pkg-config"]
 unix-file-copy-paste = [
     "dep:x11-clipboard",
     "dep:x11rb",
@@ -41,12 +40,13 @@ unix-file-copy-paste = [
     "clipboard/unix-file-copy-paste",
 ]
 screencapturekit = ["cpal/screencapturekit"]
+rustls = ["reqwest/rustls-tls-native-roots"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 async-trait = "0.1"
-scrap = { path = "libs/scrap", features = ["wayland"] }
+
 hbb_common = { path = "libs/hbb_common" }
 serde_derive = "1.0"
 serde = "1.0"
@@ -57,7 +57,6 @@ lazy_static = "1.4"
 sha2 = "0.10"
 repng = "0.2"
 parity-tokio-ipc = { git = "https://github.com/rustdesk-org/parity-tokio-ipc" }
-magnum-opus = { git = "https://github.com/rustdesk-org/magnum-opus" }
 dasp = { version = "0.11", features = ["signal", "interpolate-linear", "interpolate"], optional = true }
 rubato = { version = "0.12", optional = true }
 samplerate = { version = "0.2", optional = true }
@@ -83,7 +82,7 @@ shutdown_hooks = "0.1"
 totp-rs = { version = "5.4", default-features = false, features = ["gen_secret", "otpauth"] }
 stunclient = "0.4"
 kcp-sys= { git = "https://github.com/rustdesk-org/kcp-sys"}
-reqwest = { version = "0.12", features = ["blocking", "socks", "json", "native-tls", "rustls-tls", "rustls-tls-native-roots", "gzip"], default-features=false }
+reqwest = { version = "0.12", features = ["blocking", "socks", "json", "rustls-tls", "rustls-tls-native-roots", "gzip"], default-features=false }
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 # https://github.com/rustdesk/rustdesk/discussions/10197, not use cpal on linux
@@ -186,9 +185,9 @@ gtk = "0.18"
 termios = "0.3"
 terminfo = "0.8"
 winit = "0.30"
-
-[target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
+
+# Android: Use rustls instead of OpenSSL to avoid build issues
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.13"
@@ -196,7 +195,7 @@ jni = "0.21"
 android-wakelock = { git = "https://github.com/rustdesk-org/android-wakelock" }
 
 [workspace]
-members = ["libs/scrap", "libs/hbb_common", "libs/enigo", "libs/clipboard", "libs/virtual_display", "libs/virtual_display/dylib", "libs/portable", "libs/remote_printer"]
+members = ["libs/scrap", "libs/hbb_common", "libs/enigo", "libs/clipboard", "libs/virtual_display", "libs/virtual_display/dylib", "libs/portable", "libs/remote_printer"] # opus/magnum-opus removed for Android
 exclude = ["vdi/host", "examples/custom_plugin"]
 
 [package.metadata.winres]
@@ -211,8 +210,8 @@ winapi = { version = "0.3", features = [ "winnt", "pdh", "synchapi" ] }
 
 [build-dependencies]
 cc = "1.0"
-hbb_common = { path = "libs/hbb_common" }
 os-version = "0.2"
+    # hbb_common has been removed
 
 [dev-dependencies]
 hound = "3.5"

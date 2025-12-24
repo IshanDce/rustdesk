@@ -10,6 +10,7 @@ use cpal::{
     Device, Host, StreamConfig,
 };
 use crossbeam_queue::ArrayQueue;
+#[cfg(not(target_os = "android"))]
 use magnum_opus::{Channels::*, Decoder as AudioDecoder};
 #[cfg(not(target_os = "linux"))]
 use ringbuf::{ring_buffer::RbBase, Rb};
@@ -59,7 +60,6 @@ use hbb_common::{
     rendezvous_proto::*,
     sha2::{Digest, Sha256},
     socket_client::{connect_tcp, connect_tcp_local, ipv4_to_ipv6, new_direct_udp_for},
-    sodiumoxide::{base64, crypto::sign},
     timeout,
     tokio::{
         self,
@@ -72,7 +72,11 @@ use hbb_common::{
     },
     AddrMangle, ResultType, Stream,
 };
+use hbb_common::sodiumoxide::{base64, crypto::sign};
+use hbb_common::base64;
+use hbb_common::base64::Engine;
 pub use helper::*;
+#[cfg(not(target_os = "android"))]
 use scrap::{
     codec::Decoder,
     record::{Recorder, RecorderContext},
@@ -1032,6 +1036,7 @@ impl Client {
                 if !CLIPBOARD_STATE.lock().unwrap().running {
                     break;
                 }
+                #[cfg(feature = "flutter")]
                 if !CLIPBOARD_STATE.lock().unwrap().is_text_required {
                     std::thread::sleep(Duration::from_millis(CLIPBOARD_INTERVAL));
                     continue;
@@ -1174,6 +1179,7 @@ impl ClientClipboardHandler {
 /// Audio handler for the [`Client`].
 #[derive(Default)]
 pub struct AudioHandler {
+    #[cfg(not(target_os = "android"))]
     audio_decoder: Option<(AudioDecoder, Vec<f32>)>,
     #[cfg(target_os = "linux")]
     simple: Option<psimple::Simple>,
@@ -1393,6 +1399,7 @@ impl AudioHandler {
     }
 
     /// Handle audio format and create an audio decoder.
+    #[cfg(not(target_os = "android"))]
     pub fn handle_format(&mut self, f: AudioFormat) {
         match AudioDecoder::new(f.sample_rate, if f.channels > 1 { Stereo } else { Mono }) {
             Ok(d) => {
@@ -1419,6 +1426,7 @@ impl AudioHandler {
             log::debug!("PulseAudio simple binding does not exists");
             return;
         }
+        #[cfg(not(target_os = "android"))]
         self.audio_decoder.as_mut().map(|(d, buffer)| {
             if let Ok(n) = d.decode_float(&frame.data, buffer, false) {
                 let channels = self.channels;
@@ -1534,6 +1542,7 @@ impl AudioHandler {
 }
 
 /// Video handler for the [`Client`].
+#[cfg(not(target_os = "android"))]
 pub struct VideoHandler {
     decoder: Decoder,
     pub rgb: ImageRgb,
@@ -1545,6 +1554,7 @@ pub struct VideoHandler {
     first_frame: bool,
 }
 
+#[cfg(not(target_os = "android"))]
 impl VideoHandler {
     #[cfg(feature = "flutter")]
     pub fn get_adapter_luid() -> Option<i64> {
@@ -1747,6 +1757,7 @@ pub struct LoginConfigHandler {
     pub custom_fps: Arc<Mutex<Option<usize>>>,
     pub last_auto_fps: Option<usize>,
     pub adapter_luid: Option<i64>,
+    #[cfg(not(target_os = "android"))]
     pub mark_unsupported: Vec<CodecFormat>,
     pub selected_windows_session_id: Option<u32>,
     pub peer_info: Option<PeerInfo>,
@@ -2269,17 +2280,15 @@ impl LoginConfigHandler {
         if view_only || self.get_toggle_option("disable-clipboard") {
             msg.disable_clipboard = BoolOption::Yes.into();
         }
-        msg.supported_decoding = MessageField::some(self.get_supported_decoding());
+        if cfg!(not(target_os = "android")) {
+            msg.supported_decoding = MessageField::some(self.get_supported_decoding());
+        }
         Some(msg)
     }
 
+    #[cfg(target_os = "android")]
     pub fn get_supported_decoding(&self) -> SupportedDecoding {
-        Decoder::supported_decodings(
-            Some(&self.id),
-            use_texture_render(),
-            self.adapter_luid,
-            &self.mark_unsupported,
-        )
+        SupportedDecoding::default()
     }
 
     /// Parse the image quality option.
@@ -2708,6 +2717,7 @@ impl LoginConfigHandler {
         msg_out
     }
 
+    #[cfg(not(target_os = "android"))]
     pub fn update_supported_decodings(&self) -> Message {
         let decoding = scrap::codec::Decoder::supported_decodings(
             Some(&self.id),
@@ -2775,6 +2785,7 @@ pub type MediaSender = mpsc::Sender<MediaData>;
 /// # Arguments
 ///
 /// * `video_callback` - The callback for video frame. Being called when a video frame is ready.
+#[cfg(not(target_os = "android"))]
 pub fn start_video_thread<F, T>(
     session: Session<T>,
     display: usize,
@@ -2941,6 +2952,7 @@ pub fn start_audio_thread() -> MediaSender {
                     }
                     MediaData::AudioFormat(f) => {
                         log::debug!("recved audio format, sample rate={}", f.sample_rate);
+                        #[cfg(not(target_os = "android"))]
                         audio_handler.handle_format(f);
                     }
                     _ => {}
@@ -3485,7 +3497,7 @@ fn try_get_password_from_personal_ab(lc: Arc<RwLock<LoginConfigHandler>>, passwo
                 .iter()
                 .find_map(|p| if p.id == id { Some(p) } else { None })
             {
-                if let Ok(hash_password) = base64::decode(p.hash.clone(), base64::Variant::Original)
+                if let Ok(hash_password) = hbb_common::base64::engine::general_purpose::STANDARD.decode(&p.hash)
                 {
                     if !hash_password.is_empty() {
                         *password = hash_password.clone();

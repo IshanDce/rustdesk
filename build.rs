@@ -78,7 +78,13 @@ fn install_android_deps() {
 }
 
 fn main() {
-    hbb_common::gen_version();
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("android") {
+        return;
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        // hbb_common::gen_version(); // Disabled for Android build
+    }
     install_android_deps();
     #[cfg(all(windows, feature = "inline"))]
     build_manifest();

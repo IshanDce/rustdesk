@@ -29,7 +29,7 @@ class SettingsPage extends StatefulWidget implements PageShape {
   final icon = Icon(Icons.settings);
 
   @override
-  final appBarActions = bind.isDisableSettings() ? [] : [ScanButton()];
+  final appBarActions = platformFFI.nativeLibraryAvailable && !bind.isDisableSettings() ? [ScanButton()] : [];
 
   @override
   State<SettingsPage> createState() => _SettingsState();
@@ -101,6 +101,27 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
   var _allowAskForNoteAtEndOfConnection = false;
 
   _SettingsState() {
+    if (!platformFFI.nativeLibraryAvailable) {
+      // Set default values when native library is not available
+      _enableAbr = false;
+      _denyLANDiscovery = false;
+      _onlyWhiteList = false;
+      _enableDirectIPAccess = false;
+      _enableRecordSession = false;
+      _enableHardwareCodec = false;
+      _allowWebSocket = false;
+      _allowInsecureTlsFallback = false;
+      _disableUdp = false;
+      _autoRecordIncomingSession = false;
+      _autoRecordOutgoingSession = false;
+      _localIP = '';
+      _directAccessPort = '';
+      _allowAutoDisconnect = false;
+      _autoDisconnectTimeout = '';
+      _hideServer = false;
+      return;
+    }
+
     _enableAbr = option2bool(
         kOptionEnableAbr, bind.mainGetOptionSync(key: kOptionEnableAbr));
     _denyLANDiscovery = !option2bool(kOptionEnableLanDiscovery,

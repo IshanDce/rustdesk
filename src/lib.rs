@@ -5,10 +5,10 @@ pub mod platform;
 pub use platform::{
     get_cursor, get_cursor_data, get_cursor_pos, get_focused_display, start_os_service,
 };
-#[cfg(not(any(target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 /// cbindgen:ignore
 mod server;
-#[cfg(not(any(target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub use self::server::*;
 mod client;
 mod lan;
@@ -29,11 +29,11 @@ pub mod ipc;
 pub mod ui;
 mod version;
 pub use version::*;
-#[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
+#[cfg(feature = "flutter")]
 mod bridge_generated;
-#[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
+#[cfg(feature = "flutter")]
 pub mod flutter;
-#[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
+#[cfg(feature = "flutter")]
 pub mod flutter_ffi;
 use common::*;
 mod auth_2fa;
